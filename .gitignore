@@ -171,6 +171,7 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 CLAUDE.md
+.claude/
 experiment_llc/cache_dataset/.DS_Store
 compiled_models/
 .DS_Store
