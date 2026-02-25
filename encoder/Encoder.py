@@ -63,7 +63,7 @@ def train(red, dataloader, model_path: str):
     # red.load_state_dict(torch.load("./checkpoints/model1.pth"))
     optimizer = torch.optim.Adam(red.parameters(), lr=0.0002)
     train_internal(dataloader, red, optimizer, epochs=1, device=device)
-    print("Saving model to {} ...".format(model_path))
+    # print("Saving model to {} ...".format(model_path))
     torch.save(red.state_dict(), model_path)
 
     return red
@@ -73,10 +73,10 @@ def train_internal(dataLoader, model, optimizer, epochs, device):
     global batch_size
 
     model = model.to(device)
-    print("------training on {}-------".format(device))
+    # print("------training on {}-------".format(device))
     for epoch in range(epochs):
         train_l_sum, n = 0.0, 0
-        for x in tqdm(dataLoader):
+        for x in dataLoader:
             if x.shape[0] < batch_size:
                 continue  # skip the last batch
 
@@ -106,13 +106,13 @@ def train_internal(dataLoader, model, optimizer, epochs, device):
             n += 1
             # print("[Epoch %d/%d][Batch %d/%d] [loss: %f]" % (epoch+1, epochs, n, len(dataLoader), l.item()))
 
-        print("[Epoch %d/%d] [loss: %f]" % (epoch + 1, epochs, train_l_sum / n))
+        # print("[Epoch %d/%d] [loss: %f]" % (epoch + 1, epochs, train_l_sum / n))
 
 
 def test(dataLoader, model, max_len=-1):
     global batch_size
 
-    print("------Testing-------")
+    # print("------Testing-------")
     index = 30
     loss_list = []
 
@@ -124,7 +124,7 @@ def test(dataLoader, model, max_len=-1):
 
     model.to(device)
     with torch.no_grad():
-        for x in tqdm(dataLoader):  # for idx in range(len(dataLoader.dataset)):  # for x in dataLoader:
+        for x in dataLoader:  # for idx in range(len(dataLoader.dataset)):  # for x in dataLoader:
             # x = dataLoader.dataset[idx]
             if x.shape[0] < batch_size:
                 continue  # skip the last batch
@@ -206,7 +206,7 @@ def get_loop_num_with_log(log_path: str, prefix="", load_pretrained=True):
     model_name = os.path.join(model_path_prefix, model_name)
 
     # Step 1: train/load Convolutional RED model
-    print("Start training model...")
+    # print("Start training model...")
     preprocess_data(log_path)
     dataloader = get_dataloader(log_path)
     model = get_encoder()
@@ -224,7 +224,7 @@ def get_loop_num_with_log(log_path: str, prefix="", load_pretrained=True):
         model.eval()
     # input("debug")
     # Step 2: get segmentation points
-    print("Segmenting trace...")
+    # print("Segmenting trace...")
     trace_len, loss_list = predict(model, dataloader, log_path)
     first_id = get_seg_ids(loss_list)
     if first_id > (trace_len/2):

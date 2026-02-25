@@ -173,9 +173,7 @@ class CachePicDataset(Dataset):
 class LargeCachePicDataset(Dataset):
     def __init__(self, root_dir, train=True, compiler='tvm', as_database=False, paral_ver=False):
         if compiler == 'tvm':
-            test_names = ["resnet18-v1-7", "vgg16-7", "resnet18-v1-7-loop", "vgg16-7-loop"]
-            # test_names = ["resnet18-v1-7-loop_1", "vgg16-7-loop_1"]
-            # test_names = ["resnet18-v2-7", "vgg16-bn-7"]
+            test_names = ["resnet18", "vgg16", "gpt2"]
         elif compiler == 'glow':
             test_names = ["resnet18_v1_7.out", "vgg16_7.out"]
 
@@ -196,9 +194,11 @@ class LargeCachePicDataset(Dataset):
         if paral_ver:  # traces are collected in parallel
             for root, dirs, files in os.walk(root_dir, topdown = False):
                 for model_name in dirs:
-                    if train and model_name in test_names:
+                    # Check if model_name contains any test name (partial match)
+                    is_test_model = any(test_name in model_name for test_name in test_names)
+                    if train and is_test_model:
                         continue
-                    elif not train and model_name not in test_names:
+                    elif not train and not is_test_model:
                         continue
 
                     if 'loop_' in model_name:  # tvm
@@ -225,23 +225,26 @@ class LargeCachePicDataset(Dataset):
                         # DONE： interleave all related snippets
                         cache_pic_list = [cache_pic]
                         expected_view = [110, 1, 128, 64]
-                        for idx in range(1, 5):
-                            if compiler=='tvm':
-                                new_model_name = model_name.replace('-loop', '-loop_{}'.format(idx))
-                            else:
-                                assert compiler == 'glow'
-                                new_model_name = model_name.replace('.out', '.out_{}'.format(idx))
-                            assert new_model_name != model_name, "{} {} {}".format(compiler, model_name, new_model_name)
-                            new_np_dir = os.path.join(root, new_model_name)
-                            if os.path.exists(new_np_dir) and os.path.exists(os.path.join(new_np_dir, f)):
-                                new_cache_pic = np.load(os.path.join(new_np_dir, f))
-                                new_cache_pic = torch.from_numpy(new_cache_pic)
-                                # shuffle snippets
-                                rnd = torch.randperm(len(new_cache_pic))
-                                new_cache_pic = new_cache_pic[rnd]
-                                
-                                cache_pic_list.append(new_cache_pic)
-                                expected_view[0] += 110
+                        # Check if model name follows the expected naming convention for parallel traces
+                        has_parallel_suffix = (compiler == 'tvm' and '-loop' in model_name) or \
+                                              (compiler == 'glow' and '.out' in model_name)
+                        if has_parallel_suffix:
+                            for idx in range(1, 5):
+                                if compiler=='tvm':
+                                    new_model_name = model_name.replace('-loop', '-loop_{}'.format(idx))
+                                else:
+                                    assert compiler == 'glow'
+                                    new_model_name = model_name.replace('.out', '.out_{}'.format(idx))
+                                new_np_dir = os.path.join(root, new_model_name)
+                                if os.path.exists(new_np_dir) and os.path.exists(os.path.join(new_np_dir, f)):
+                                    new_cache_pic = np.load(os.path.join(new_np_dir, f))
+                                    new_cache_pic = torch.from_numpy(new_cache_pic)
+                                    # shuffle snippets
+                                    rnd = torch.randperm(len(new_cache_pic))
+                                    new_cache_pic = new_cache_pic[rnd]
+
+                                    cache_pic_list.append(new_cache_pic)
+                                    expected_view[0] += 110
                         # print(len(cache_pic_list), expected_view)
                         tmp_cache_pic = torch.stack(cache_pic_list, dim=1)
                         cache_pic = tmp_cache_pic.view(expected_view)
@@ -271,9 +274,11 @@ class LargeCachePicDataset(Dataset):
         else:
             for root, dirs, files in os.walk(root_dir, topdown = False):
                 for model_name in dirs:
-                    if train and model_name in test_names:
+                    # Check if model_name contains any test name (partial match)
+                    is_test_model = any(test_name in model_name for test_name in test_names)
+                    if train and is_test_model:
                         continue
-                    elif not train and model_name not in test_names:
+                    elif not train and not is_test_model:
                         continue
 
                     np_dir = os.path.join(root, model_name)
@@ -500,7 +505,6 @@ def preprocess_traces_dir(log_dir: str, skip=100):
         for name in dirs:
             # print(os.path.join(root, name))
             preprocess_traces(os.path.join(root, name), skip=skip, count=110)
-
 
 
 if __name__ == '__main__':

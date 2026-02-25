@@ -41,7 +41,7 @@ def experiment_tvm_O3():
     localtime = time.asctime( time.localtime(time.time()) )
     print (localtime)
     attr_labels = "./attr_labels_tvm.json"
-    new_labels = os.path.join(trace_data_dir, "./final_labels_tvm.jsopn")
+    new_labels = os.path.join(trace_data_dir, "./final_labels_tvm.json")
     check_loop_factor_red(topk_labels_path, attr_labels, trace_data_dir, new_labels, 'tvm')
 
 
@@ -81,7 +81,7 @@ def experiment_glow():
     localtime = time.asctime( time.localtime(time.time()) )
     print (localtime)
     attr_labels = "./attr_labels_glow.json"
-    new_labels = os.path.join(trace_data_dir, "./final_labels_glow.jsopn")
+    new_labels = os.path.join(trace_data_dir, "./final_labels_glow.json")
     check_loop_factor_red(topk_labels_path, attr_labels, trace_data_dir, new_labels, 'glow')
 
 
@@ -257,9 +257,9 @@ def experiment_tvm_O3_LLC(trace_dir="./cache_dataset/cache_dataset_llc_tvm/"):
     # A embedding mode for all data
     
     trace_data_dir = os.path.abspath(trace_dir)
-    trainset, trainloader, testset, testloader = Embed.dataset(trace_data_dir, compiler='tvm', paral_ver=True)
+    trainset, trainloader, testset, testloader = Embed.dataset(trace_data_dir, compiler='tvm')
     # input("after getting dataset...continue?")
-    Embed.set_model_name(compiler='tvm_cache_llc', epoch_num=50, prefix='embedding')
+    Embed.set_model_name(compiler='tvm_cache_llc', epoch_num=80, prefix='embedding')
 
     net, criterion, optimizer = Embed.build_model()
     print("Training...")
@@ -272,7 +272,7 @@ def experiment_tvm_O3_LLC(trace_dir="./cache_dataset/cache_dataset_llc_tvm/"):
     print (localtime)
     embedding_path = os.path.join(trace_data_dir, "embedding.json")
     trainset, trainloader, testset, testloader = Embed.database(trace_data_dir, compiler='tvm')
-    # embedding_path = Embed.generate_embedding_database(net, trainset, embedding_file=embedding_path) 
+    embedding_path = Embed.generate_embedding_database(net, trainset, embedding_file=embedding_path) 
 
     print("Matching...")
     localtime = time.asctime( time.localtime(time.time()) )
@@ -287,9 +287,9 @@ def experiment_tvm_O3_LLC(trace_dir="./cache_dataset/cache_dataset_llc_tvm/"):
     print("Checking...")
     localtime = time.asctime( time.localtime(time.time()) )
     print (localtime)
-    attr_labels = "/export/d2/zliudc/VirtualEnv/ONNX_Zoo_Loop/TVM-0.12/labels_new.json"
+    attr_labels = "./attr_labels_tvm.json"
     new_labels = os.path.join(trace_data_dir, "./final_labels_tvm_cache_llc.json")
-    check_loop_factor_red_LLC(topk_labels_path, attr_labels, trace_data_dir, new_labels, 'tvm', topk=20)
+    check_loop_factor_red_LLC(topk_labels_path, attr_labels, trace_data_dir, new_labels, 'tvm', topk=50, len_thre=0.25)
 
 
 def experiment_glow_LLC(trace_dir="./cache_dataset/LLC_dataset_glow/"):
@@ -313,7 +313,7 @@ def experiment_glow_LLC(trace_dir="./cache_dataset/LLC_dataset_glow/"):
     print (localtime)
     embedding_path = os.path.join(trace_data_dir, "embedding.json")
     trainset, trainloader, testset, testloader = Embed.database(trace_data_dir, compiler='glow')
-    # embedding_path = Embed.generate_embedding_database(net, trainset, embedding_file=embedding_path) 
+    embedding_path = Embed.generate_embedding_database(net, trainset, embedding_file=embedding_path) 
 
     print("Matching...")
     localtime = time.asctime( time.localtime(time.time()) )
@@ -328,33 +328,33 @@ def experiment_glow_LLC(trace_dir="./cache_dataset/LLC_dataset_glow/"):
     print("Checking...")
     localtime = time.asctime( time.localtime(time.time()) )
     print (localtime)
-    attr_labels = "./labels_glow_HP.json"
+    attr_labels = "./attr_labels_glow.json"
     new_labels = os.path.join(trace_data_dir, "./final_labels_glow_cache_llc.json")
     check_loop_factor_red_LLC(topk_labels_path, attr_labels, trace_data_dir, new_labels, 'glow', topk=20)
 
 
 if __name__ == '__main__':
     # # check results of tvm O3 cache
-    # check_loop_factor_red("/export/ssd1/zliudc/VirtualEnv/DeepCache/embedding/distinct_labels_tvm_cache.json", 
+    # check_loop_factor_red("./embedding/distinct_labels_tvm_cache.json", 
     #                       "./attr_labels_tvm.json", 
-    #                       "/export/ssd1/zliudc/VirtualEnv/DeepCache/cache_dataset/cache_dataset_tvm/", "./tmp_tvm_O3_cache.json", 'tvm')
+    #                       "./cache_dataset/cache_dataset_tvm/", "./tmp_tvm_O3_cache.json", 'tvm')
     # # check results of tvm O3 cache
-    # check_loop_factor_red("/export/ssd1/zliudc/VirtualEnv/DeepCache/embedding/distinct_labels_glow_cache.json", 
+    # check_loop_factor_red("./embedding/distinct_labels_glow_cache.json", 
     #                       "./attr_labels_glow.json", 
-    #                       "/export/ssd1/zliudc/VirtualEnv/DeepCache/cache_dataset/cache_dataset_glow/", "./tmp_tvm_O3_glow.json", 'glow')
+    #                       "./cache_dataset/cache_dataset_glow/", "./tmp_tvm_O3_glow.json", 'glow')
     # exit(0)
 
     # experiment_tvm_O3_cache("./cache_dataset/cache_dataset_tvm/")
     # experiment_glow_cache("./cache_dataset/cache_dataset_glow/")
     # # experiment_oram_mitigate()
 
-    # experiment_tvm_O3_LLC("/export/d2/zliudc/VirtualEnv/DeepCache/cache_dataset/LLC_dataset_tvm/")
+    # experiment_tvm_O3_LLC("./cache_dataset/LLC_dataset_tvm/")
     # experiment_glow_LLC("./cache_dataset/LLC_dataset_glow/")
     # exit(0)
     if sys.argv[1] == 'tvm':
         print("Start TVM experiment")
         # experiment_tvm_O3()
-        experiment_tvm_O3_LLC("./cache_dataset/LLC_dataset_tvm/")
+        experiment_tvm_O3_LLC("./cache_dataset/cache_dataset_llc_tvm/")
     if sys.argv[1] == 'glow':
         print("Start Glow experiment")
         # experiment_glow()

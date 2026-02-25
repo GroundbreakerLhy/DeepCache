@@ -503,12 +503,11 @@ def check_topk_labels_glow(predict_labels, attr_labels, topk=1):
 
 
 if __name__ == '__main__':
-    # check_vote_labels("./tmp_labels.json", "/export/d2/zliudc/VirtualEnv/ONNX_Zoo/TVM-0.12/labels.json")
-    # check_topk_labels("./distinct_labels.json", "/export/d2/zliudc/VirtualEnv/ONNX_Zoo/TVM-0.12/labels.json", topk=8)
+    # check_vote_labels("./tmp_labels.json", "./attr_labels_tvm.json")
+    # check_topk_labels("./distinct_labels.json", "./attr_labels_tvm.json", topk=8)
 
-    # check_topk_labels_glow("./distinct_labels_glow.json", "/export/d2/zliudc/VirtualEnv/ONNX_Zoo/Glow-2023/labels_glow.json", topk=100)
+    # check_topk_labels_glow("./distinct_labels_glow.json", "./attr_labels_glow.json", topk=100)
     
     check_topk_labels("./embedding/distinct_labels_tvm_oram.json", 
-                      # "/export/d2/zliudc/VirtualEnv/ONNX_Zoo/TVM-0.12/labels_new.json",
                       "./attr_labels_tvm.json", 
                       topk=30)
