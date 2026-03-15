@@ -14,7 +14,8 @@ dnn_input_vision = "/home/groundbreaker/DeepCache/experiment_llc/cat.bin"
 dnn_input_nlp = "/home/groundbreaker/DeepCache/experiment_llc/nlp_input.bin"
 
 # NLP models that need int64 input
-NLP_MODELS = {"bertsquad", "gpt2", "roberta", "t5-encoder"}
+NLP_MODELS = {"bertsquad", "gpt2", "roberta", "t5-encoder",
+              "gpt2-medium", "opt-125m", "opt-350m", "qwen2.5-0.5b"}
 
 # ============ Shared Memory Protocol ============
 SHM_NAME = "/llc_signal"
@@ -395,7 +396,12 @@ def generate_trace_for_all(models_dir="compiled_models/tvm/", only_models=None):
 # ============ Entry Point ============
 if __name__ == "__main__":
     # Only collect traces for these models (set to None to collect all)
-    ONLY_MODELS = ["gpt2", "roberta", "t5-encoder"]
+    ONLY_MODELS = [
+        "qwen2.5-0.5b",
+        "rcnn-ilsvrc13", "resnet101", "resnet152", "resnet18", "resnet34", "resnet50", "resnet50-v2",
+        "roberta", "shufflenet_v1", "shufflenet_v2", "squeezenet1.1",
+        "t5-encoder", "vgg16", "vgg19", "zfnet512",
+    ]
 
     subprocess.run(["sudo", "bash", "./sca_tools/reduce_noise.sh", "start"])
     if ONLY_MODELS is None:
@@ -409,3 +415,4 @@ if __name__ == "__main__":
                 subprocess.run(["sudo", "rm", "-rf", d])
     generate_trace_for_all("compiled_models/tvm/", only_models=ONLY_MODELS)
     subprocess.run(["sudo", "bash", "./sca_tools/reduce_noise.sh", "stop"])
+    subprocess.run(["sudo", "pkill", "-f", "llc_attacker"])

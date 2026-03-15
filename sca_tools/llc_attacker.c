@@ -259,9 +259,14 @@ int main(int argc, char *argv[])
     // Initialize pagemap for physical address access
     init_pagemap();
 
-    // Allocate eviction buffer
+    // Allocate eviction buffer and lock in physical memory to prevent swap
     char *eviction = malloc(EV_BUFFER);
     memset(eviction, 1, EV_BUFFER);
+    if (mlock(eviction, EV_BUFFER) != 0)
+    {
+        perror("mlock failed (run as root or increase RLIMIT_MEMLOCK)");
+        // Non-fatal: continue but eviction sets may be invalidated under memory pressure
+    }
 
     // Randomly select starting cache set
     srand(time(NULL));

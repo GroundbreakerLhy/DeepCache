@@ -31,8 +31,13 @@ def run(prog_path, under_dir=""):
     if len(under_dir) == 0:
         under_dir = project_dir
     with cd(under_dir):
+        env = os.environ.copy()
+        tmp_dir = os.path.expanduser("~/tmp_gcc")
+        os.makedirs(tmp_dir, exist_ok=True)
+        env["TMPDIR"] = tmp_dir
         proc = subprocess.Popen(
-            prog_path, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            prog_path, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            env=env
         )
         stdout, stderr = proc.communicate()
         return stdout, stderr
@@ -122,12 +127,18 @@ def compile_all_onnx(recompile=False):
     if not os.path.exists(target_base):
         os.makedirs(target_base)
 
-    files = os.listdir(onnx_dir)
-    files.sort()
-    for f in files:
-        if f.endswith(".onnx") and "mnist" not in f:
-            model_name = os.path.splitext(f)[0]
-            f_path = os.path.join(os.path.abspath(onnx_dir), f)
+    # Collect (model_name, onnx_path) for both flat .onnx files and subdirectories
+    entries = []
+    for item in sorted(os.listdir(onnx_dir)):
+        item_path = os.path.join(os.path.abspath(onnx_dir), item)
+        if item.endswith(".onnx") and "mnist" not in item:
+            entries.append((os.path.splitext(item)[0], item_path))
+        elif os.path.isdir(item_path):
+            submodel = os.path.join(item_path, "model.onnx")
+            if os.path.exists(submodel) and "mnist" not in item:
+                entries.append((item, submodel))
+
+    for model_name, f_path in entries:
             model_dir = os.path.join(target_base, model_name)
 
             # Skip already compiled models if recompile=False
