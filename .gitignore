@@ -11,6 +11,7 @@
 *.net
 *.log
 *.so
+*.tar
 
 __pycache__/
 CLAUDE.md
