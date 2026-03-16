@@ -178,8 +178,8 @@ def log_or_not(name_list, idx, size):
     if not name.endswith("_compute_"):
         return False, ""
 
-    # 只采集 conv2d, dense, pool 相关算子
-    if "conv2d" in name or "dense" in name or "pool" in name:
+    # Vision models 采集 conv2d, dense, pool 相关算子, NLP models 多采集 batch_matmul 相关算子
+    if "conv2d" in name or "dense" in name or "pool" in name or "batch_matmul" in name:
         if size > 0x50:
             return True, name_list[idx][:-4]
 
@@ -397,10 +397,14 @@ def generate_trace_for_all(models_dir="compiled_models/tvm/", only_models=None):
 if __name__ == "__main__":
     # Only collect traces for these models (set to None to collect all)
     ONLY_MODELS = [
+        "bertsquad",
+        "gpt2",
+        "gpt2-medium",
+        "opt-125m",
+        "opt-350m",
         "qwen2.5-0.5b",
-        "rcnn-ilsvrc13", "resnet101", "resnet152", "resnet18", "resnet34", "resnet50", "resnet50-v2",
-        "roberta", "shufflenet_v1", "shufflenet_v2", "squeezenet1.1",
-        "t5-encoder", "vgg16", "vgg19", "zfnet512",
+        "roberta",
+        "t5-encoder",
     ]
 
     subprocess.run(["sudo", "bash", "./sca_tools/reduce_noise.sh", "start"])
