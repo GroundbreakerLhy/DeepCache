@@ -658,6 +658,52 @@ def check_loop_factor_red(
     print("{}/{}".format(correct_count, all_count))
 
 
+def extract_op_type(layer_name, compiler="tvm"):
+    """Extract operator type from layer name."""
+    if compiler == "tvm":
+        if "conv2d" in layer_name:
+            return "conv2d"
+        elif "dense" in layer_name:
+            return "dense"
+        elif "global_avg_pool" in layer_name:
+            return "global_avg_pool"
+        elif "max_pool" in layer_name:
+            return "max_pool"
+        elif "avg_pool" in layer_name:
+            return "avg_pool"
+        elif "batch_matmul" in layer_name:
+            return "batch_matmul"
+        elif "softmax" in layer_name:
+            return "softmax"
+        elif "layout_transform" in layer_name:
+            return "layout_transform"
+        return layer_name
+    elif compiler == "glow":
+        if "conv" in layer_name:
+            return "conv"
+        elif "fc" in layer_name:
+            return "fc"
+        elif "pool" in layer_name:
+            return "pool"
+        return layer_name
+
+
+def extract_mem_layout(layer_name, attr, compiler="tvm"):
+    """Extract memory layout signature: (layout_tag, attr_ndim)."""
+    if compiler == "tvm":
+        if "NCHWc" in layer_name:
+            layout_tag = "NCHWc"
+        elif "conv2d" in layer_name:
+            layout_tag = "NCHW"
+        elif "dense_pack" in layer_name:
+            layout_tag = "packed"
+        else:
+            layout_tag = "default"
+        return (layout_tag, len(attr) if attr else 0)
+    elif compiler == "glow":
+        return ("glow_default", len(attr) if attr else 0)
+
+
 def check_loop_factor_red_LLC(
     predict_labels,
     attr_labels,
@@ -677,6 +723,12 @@ def check_loop_factor_red_LLC(
 
     correct_count = 0
     all_count = 0
+    # per-model stats: {model: {op_type: [correct, total], mem_layout: [...], hyper: [...]}}
+    from collections import defaultdict
+    model_stats = defaultdict(lambda: {
+        "op_type": [0, 0], "mem_layout": [0, 0], "hyper": [0, 0]
+    })
+
     # for each candidata, we extract the loop factor
     new_labels_list = []
     for name, output_list in pre_labels:
@@ -706,6 +758,10 @@ def check_loop_factor_red_LLC(
             print(f"Warning: could not find attributes for {name} (key: {name_key})")
             continue
         # print("target debug: {} {} {}".format(name, target_factor, target_attr_list))
+
+        # extract target op_type and mem_layout
+        target_op_type = extract_op_type(layer_name, compiler)
+        target_mem_layout = extract_mem_layout(layer_name, target_attr_list[0], compiler)
 
         # calculate the final score
         output_list = output_list[:topk]
@@ -764,6 +820,10 @@ def check_loop_factor_red_LLC(
         print(f"    Target attr: {target_attr_list}")
 
         exist = False
+        op_type_matched = False
+        mem_layout_matched = False
+        hyper_matched = False
+
         if len(new_output_list) > 0:
             for rank, candidate in enumerate(new_output_list, 1):
                 cand_name, cand_sim, cand_len, cand_score, cand_factor, cand_attrs = candidate
@@ -773,14 +833,30 @@ def check_loop_factor_red_LLC(
                 print(f"          embedding_sim={cand_sim:.4f}, loop_factor_sim={loop_sim:.4f}, score={cand_score:.4f}")
                 print(f"          attr={cand_attrs}")
 
+                # check op type
+                cand_op_type = extract_op_type(cand_layer, compiler)
+                if not op_type_matched and cand_op_type == target_op_type:
+                    op_type_matched = True
+
+                # check mem layout
+                if not mem_layout_matched and cand_op_type == target_op_type:
+                    for ca in (cand_attrs if isinstance(cand_attrs, list) and cand_attrs and isinstance(cand_attrs[0], list) else [cand_attrs]):
+                        cand_mem_layout = extract_mem_layout(cand_layer, ca, compiler)
+                        if cand_mem_layout == target_mem_layout:
+                            mem_layout_matched = True
+                            break
+
+                # check hyperparameters (attr value match)
                 if (compiler == "tvm" and any(ta in cand_attrs for ta in target_attr_list)) or (
                     compiler == "glow" and any(ta == cand_attrs for ta in target_attr_list)
                 ):
                     exist = True
+                    hyper_matched = True
                     print(f"    Match: {candidate[0]} (exact, rank {rank})\n")
                     break
                 elif any(attr_fuzzy_match(ta, cand_attrs, compiler) for ta in target_attr_list):
                     exist = True
+                    hyper_matched = True
                     print(f"    Match: {candidate[0]} (fuzzy, rank {rank})")
                     break
             if not exist:
@@ -791,10 +867,55 @@ def check_loop_factor_red_LLC(
         if exist:
             correct_count += 1
         all_count += 1
+
+        # update per-model stats
+        stats = model_stats[model_name]
+        stats["op_type"][1] += 1
+        stats["mem_layout"][1] += 1
+        stats["hyper"][1] += 1
+        if op_type_matched:
+            stats["op_type"][0] += 1
+        if mem_layout_matched:
+            stats["mem_layout"][0] += 1
+        if hyper_matched:
+            stats["hyper"][0] += 1
+
         new_labels_list.append([(name, target_factor, target_attr_list), new_output_list])
     with open(new_labels, "w") as f:
         json.dump(new_labels_list, f, indent=2)
-    print("Top 5 accuracy: {}/{}".format(correct_count, all_count))
+
+    # print recovery rate table per model
+    print("\n" + "=" * 78)
+    print(f"{'Recovery Rate Table (Top-5)':^78}")
+    print("=" * 78)
+    print(f"{'Model':<20} {'Operator Types':>18} {'Hyperparameters':>18} {'Mem Layout':>18}")
+    print("-" * 78)
+
+    total_op = [0, 0]
+    total_hyper = [0, 0]
+    total_layout = [0, 0]
+    for m_name in sorted(model_stats.keys()):
+        s = model_stats[m_name]
+        op_rate = s["op_type"][0] / s["op_type"][1] * 100 if s["op_type"][1] > 0 else 0
+        hyper_rate = s["hyper"][0] / s["hyper"][1] * 100 if s["hyper"][1] > 0 else 0
+        layout_rate = s["mem_layout"][0] / s["mem_layout"][1] * 100 if s["mem_layout"][1] > 0 else 0
+        op_str = f"{s['op_type'][0]}/{s['op_type'][1]} ({op_rate:.1f}%)"
+        hyper_str = f"{s['hyper'][0]}/{s['hyper'][1]} ({hyper_rate:.1f}%)"
+        layout_str = f"{s['mem_layout'][0]}/{s['mem_layout'][1]} ({layout_rate:.1f}%)"
+        print(f"{m_name:<20} {op_str:>18} {hyper_str:>18} {layout_str:>18}")
+        total_op[0] += s["op_type"][0]; total_op[1] += s["op_type"][1]
+        total_hyper[0] += s["hyper"][0]; total_hyper[1] += s["hyper"][1]
+        total_layout[0] += s["mem_layout"][0]; total_layout[1] += s["mem_layout"][1]
+
+    print("-" * 78)
+    op_rate = total_op[0] / total_op[1] * 100 if total_op[1] > 0 else 0
+    hyper_rate = total_hyper[0] / total_hyper[1] * 100 if total_hyper[1] > 0 else 0
+    layout_rate = total_layout[0] / total_layout[1] * 100 if total_layout[1] > 0 else 0
+    op_str = f"{total_op[0]}/{total_op[1]} ({op_rate:.1f}%)"
+    hyper_str = f"{total_hyper[0]}/{total_hyper[1]} ({hyper_rate:.1f}%)"
+    layout_str = f"{total_layout[0]}/{total_layout[1]} ({layout_rate:.1f}%)"
+    print(f"{'Overall':<20} {op_str:>18} {hyper_str:>18} {layout_str:>18}")
+    print("=" * 78)
 
 
 def attr_fuzzy_match(target_attr, pre_attrs, compiler=""):

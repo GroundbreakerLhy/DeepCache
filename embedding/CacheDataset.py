@@ -173,7 +173,7 @@ class CachePicDataset(Dataset):
 class LargeCachePicDataset(Dataset):
     def __init__(self, root_dir, train=True, compiler='tvm', as_database=False, paral_ver=False):
         if compiler == 'tvm':
-            test_names = ["resnet18", "vgg16", "opt-350m", "t5-encoder"]
+            test_names = ["resnet18", "vgg16", "opt-350m", "roberta"]
         elif compiler == 'glow':
             test_names = ["resnet18_v1_7.out", "vgg16_7.out"]
 
